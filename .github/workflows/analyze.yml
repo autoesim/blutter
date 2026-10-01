@@ -1,0 +1,58 @@
+name: Blutter APK Analysis
+
+on:
+  workflow_dispatch:
+    inputs:
+      apk_url:
+        description: 'APK 下载地址'
+        required: true
+        type: string
+
+jobs:
+  analyze:
+    runs-on: ubuntu-24.04   # 需要 g++ >= 13 (C++20)
+
+    steps:
+      # ===== 1. 检出当前项目（含 submodules）=====
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # ===== 2. 安装构建依赖 =====
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            python3-pyelftools \
+            python3-requests \
+            cmake \
+            ninja-build \
+            build-essential \
+            pkg-config \
+            libicu-dev \
+            libcapstone-dev
+
+      # ===== 3. 下载 APK =====
+      - name: Download APK
+        run: |
+          wget -q -O app.apk "${{ github.event.inputs.apk_url }}"
+          ls -lh app.apk
+
+      # ===== 4. 运行 Blutter（直接传入 APK）=====
+      - name: Run Blutter
+        run: |
+          python3 blutter.py app.apk output
+
+      # ===== 5. 查看输出 =====
+      - name: List output
+        run: |
+          find output -type f | head -50
+
+      # ===== 6. 上传分析结果 =====
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: blutter-output
+          path: output/
+          retention-days: 30
